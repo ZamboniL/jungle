@@ -1,9 +1,24 @@
 {
-  "name": "@repo/typescript-config",
+  "name": "@jungle/typescript-config",
   "version": "0.0.0",
-  "private": true,
-  "license": "MIT",
-  "publishConfig": {
-    "access": "public"
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./base.json",
+      "default": "./base.json"
+    },
+    "./next": {
+      "import": "./next.json",
+      "default": "./next.json"
+    },
+    "./node": {
+      "import": "./node.json",
+      "default": "./node.json"
+    },
+    "./library/react": {
+      "import": "./react-library.json",
+      "default": "./react-library.json"
+    }
   }
 }

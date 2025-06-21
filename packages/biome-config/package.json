@@ -1,0 +1,12 @@
+{
+  "name": "@jungle/biome-config",
+  "version": "0.0.0",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./default.json",
+      "default": "./default.json"
+    }
+  }
+}
