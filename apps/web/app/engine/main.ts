@@ -1,88 +1,26 @@
-import { Application, Assets, Sprite } from "pixi.js";
-
-class KeyboardManager {
-  keys: Record<string, boolean> = {};
-
-  init() {
-    window.addEventListener("keydown", (event) => {
-      this.keys[event.key] = true;
-    });
-
-    window.addEventListener("keyup", (event) => {
-      this.keys[event.key] = false;
-    });
-  }
-
-  isKeyPressed(key: string): boolean {
-    return this.keys[key];
-  }
-}
-
-class WebsocketManager {
-  private socket: WebSocket | null = null;
-
-  connect(url: string): void {
-    this.socket = new WebSocket(url);
-
-    this.socket.onopen = () => {
-      console.log("WebSocket connection established.");
-      this.socket?.send(
-        JSON.stringify({
-          id: ID,
-          type: "connect",
-          message: "Client connected",
-        }),
-      );
-    };
-
-    this.socket.onmessage = (event) => {
-      console.log("Message from server:", event.data);
-    };
-
-    this.socket.onclose = () => {
-      console.log("WebSocket connection closed.");
-    };
-
-    this.socket.onerror = (error) => {
-      console.error("WebSocket error:", error);
-    };
-  }
-
-  send(message: string): void {
-    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      this.socket.send(message);
-    } else {
-      console.error("WebSocket is not open. Cannot send message.");
-    }
-  }
-
-  listen(callback: (message: string) => void): void {
-    if (this.socket) {
-      this.socket.onmessage = (event) => {
-        callback(event.data);
-      };
-    } else {
-      console.error("WebSocket is not initialized.");
-    }
-  }
-}
+import { Application, Assets, Point } from "pixi.js";
+import "pixi.js/math-extras";
+import { Event } from "@jungle/communication/websocket";
+import { ASSETS } from "./const.js";
+import { EntityCollection } from "./Entity/EntityCollection.js";
+import { PlayerEntity } from "./Entity/PlayerEntity.js";
+import { KeyboardManager } from "./KeyboardManager.js";
+import { PositionNotifier } from "./Server/PositionNotifier.js";
+import { WebsocketManager } from "./Server/WebsocketManager.js";
 
 const ID = Math.random().toString(36).substring(2, 15);
-
-const BUNNIES = new Map<string, Sprite>();
+const PLAYERS = new EntityCollection<PlayerEntity>();
 
 (async () => {
   // Create a new application
   const app = new Application();
-  const keyboardManager = new KeyboardManager();
-  keyboardManager.init();
-  const websocketManager = new WebsocketManager();
-  websocketManager.connect("ws://localhost:8080");
 
-  // Initialize the application
+  const keyboardManager = new KeyboardManager();
+  const websocketManager = new WebsocketManager();
+  keyboardManager.init();
+
   await app.init({ background: "#1099bb", resizeTo: window });
 
-  // Append the application canvas to the document body
   const container = document.getElementById("pixi-container");
 
   if (!container) {
@@ -91,86 +29,116 @@ const BUNNIES = new Map<string, Sprite>();
 
   container.appendChild(app.canvas);
 
-  // Load the bunny texture
-  const texture = await Assets.load("/assets/bunny.png");
+  await Assets.load(ASSETS.PLAYER);
 
-  // Create a bunny Sprite
-  const bunny = new Sprite({ texture, eventMode: "static" });
+  const player = new PlayerEntity(
+    ID,
+    app.screen.width / 2,
+    app.screen.height / 2,
+  );
+  player.isLocalPlayer = true;
 
-  // Center the sprite's anchor point
-  bunny.anchor.set(0.5);
+  PLAYERS.add(player);
+  app.stage.addChild(player.sprite);
+  const positionNotifier = new PositionNotifier(websocketManager);
 
-  // Move the sprite to the center of the screen
-  bunny.position.set(app.screen.width / 2, app.screen.height / 2);
-  BUNNIES.set(ID, bunny);
-
-  // Add the bunny to the stage
-  app.stage.addChild(bunny);
-
-  websocketManager.listen((message) => {
-    const data = JSON.parse(message);
-    if (!data?.type) {
-      console.error("Invalid message received:", message);
+  websocketManager.addHandler(Event.CONNECT, (message) => {
+    if (message.header.id === ID) {
       return;
     }
 
-    let bunnie = BUNNIES.get(data.id);
-
-    if (!bunnie || data.type === "connect") {
-      bunnie = new Sprite({ texture, eventMode: "static" });
-      bunnie.anchor.set(0.5);
-      bunnie.position.set(data.position.x, data.position.y);
-
-      BUNNIES.set(data.id, bunnie);
-
-      app.stage.addChild(bunnie);
-      console.log(`New client connected: ${data.id}`);
-    }
-
-    if (data.type === "disconnect") {
-      app.stage.removeChild(bunnie);
-      BUNNIES.delete(data.id);
+    let player = PLAYERS.get(message.header.id);
+    if (player) {
+      console.warn(`Player with ID ${message.header.id} already exists.`);
       return;
     }
 
-    if (data.id !== ID && data.type === "bunnyPosition") {
-      bunnie.position.set(data.position.x, data.position.y);
-    }
+    player = new PlayerEntity(
+      message.header.id,
+      app.screen.width / 2,
+      app.screen.height / 2,
+    );
+    PLAYERS.add(player);
+    app.stage.addChild(player.sprite);
   });
 
+  websocketManager.addHandler(Event.DISCONNECT, (message) => {
+    const player = PLAYERS.get(message.header.id);
+    if (!player) {
+      console.warn(`Player with ID ${message.header.id} does not exist.`);
+      return;
+    }
+
+    app.stage.removeChild(player.sprite);
+    PLAYERS.remove(player);
+  });
+
+  websocketManager.addHandler(Event.BATCH_POSITIONS, (message) => {
+    const player = PLAYERS.get(message.header.id);
+    if (!player) {
+      console.warn(`Player with ID ${message.header.id} does not exist.`);
+      return;
+    }
+
+    for (const position of message.data) {
+      player.move(new Point(position.x, position.y));
+    }
+  });
+  // => {
+  //   const data = JSON.parse(message);
+  //   if (!data?.type) {
+  //     console.error("Invalid message received:", message);
+  //     return;
+  //   }
+
+  //   let bunnie = PLAYERS.get(data.id);
+
+  //   if (!bunnie || data.type === "connect") {
+  //     bunnie = new PlayerEntity(
+  //       data.id,
+  //       data.position?.x || app.screen.width / 2,
+  //       data.position?.y || app.screen.height / 2,
+  //     );
+
+  //     PLAYERS.add(bunnie);
+  //     app.stage.addChild(bunnie.sprite);
+  //   }
+
+  //   if (data.type === "disconnect") {
+  //     app.stage.removeChild(bunnie.sprite);
+  //     PLAYERS.remove(data.id);
+
+  //     return;
+  //   }
+
+  //   if (data.id !== ID && data.type === "bunnyPosition") {
+  //     bunnie.move(data.position.x, data.position.y);
+  //   }
+  // });
+
   app.ticker.add((time) => {
-    const position = bunny.position;
-    let changed = false;
+    const input = new Point(0, 0);
+
     if (keyboardManager.isKeyPressed("ArrowLeft")) {
-      position.x -= 5 * time.deltaTime;
-      changed = true;
+      input.x -= 1;
     }
     if (keyboardManager.isKeyPressed("ArrowRight")) {
-      position.x += 5 * time.deltaTime;
-      changed = true;
+      input.x += 1;
     }
     if (keyboardManager.isKeyPressed("ArrowUp")) {
-      position.y -= 5 * time.deltaTime;
-      changed = true;
+      input.y -= 1;
     }
     if (keyboardManager.isKeyPressed("ArrowDown")) {
-      position.y += 5 * time.deltaTime;
-      changed = true;
+      input.y += 1;
     }
 
-    if (changed) {
-      websocketManager.send(
-        JSON.stringify({
-          id: ID,
-          type: "bunnyPosition",
-          position: {
-            x: position.x,
-            y: position.y,
-          },
-        }),
-      );
+    if (!input.equals(Point.shared)) {
+      const velocity = input
+        .normalize()
+        .multiplyScalar(player.speed * time.deltaTime);
 
-      bunny.position = position;
+      player.move(velocity);
+      positionNotifier.addPosition(player.position.x, player.position.y);
     }
   });
 })();

@@ -1,0 +1,35 @@
+{
+  "name": "@jungle/packet",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./websocket": {
+      "import": "./src/websocket/index.ts",
+      "require": "./src/websocket/index.ts",
+      "default": "./src/websocket/index.ts",
+      "types": "./src/websocket/index.ts"
+    },
+    "./websocket/client": {
+      "import": "./src/websocket/protocol/client.ts",
+      "require": "./src/websocket/protocol/client.ts",
+      "default": "./src/websocket/protocol/client.ts",
+      "types": "./src/websocket/protocol/client.ts"
+    },
+    "./websocket/server": {
+      "import": "./src/websocket/protocol/server.ts",
+      "require": "./src/websocket/protocol/server.ts",
+      "default": "./src/websocket/protocol/server.ts",
+      "types": "./src/websocket/protocol/server.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "typescript": "^5.8.3",
+    "@jungle/typescript-config": "*",
+    "@jungle/shared-types": "*"
+  },
+  "peerDependencies": {
+    "ws": "^8.18.2"
+  }
+}

@@ -11,7 +11,8 @@
     "lint": "echo 'Add lint script here'"
   },
   "dependencies": {
-    "ws": "^8.18.2"
+    "ws": "^8.18.2",
+    "@jungle/communication": "*"
   },
   "devDependencies": {
     "@types/ws": "^8.18.1",
