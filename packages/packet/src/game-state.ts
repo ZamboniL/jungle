@@ -7,7 +7,7 @@ type Player = {
   };
 };
 
-type GameStatePacket = {
+export type GameStatePacket = {
   tick: number; // 4B
   count: number; // 1B
   players: Player[]; // count * (1B + 2B + 4B + 4B)

@@ -12,7 +12,7 @@ export const Step = {
 type StepKey = keyof typeof Step;
 type StepType = (typeof Step)[keyof typeof Step];
 
-type StepPacket = {
+export type StepPacket = {
   sequence: number; // 2B
   step: StepKey; // 1B
 };

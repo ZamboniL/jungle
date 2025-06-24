@@ -1,29 +1,27 @@
-import type { WebSocket, WebSocketServer } from "ws";
-import { Event, type EventTypeEnum } from "../events/index.js";
 import {
-  decodeMessage,
-  decodeUUID,
-  deserializePayload,
-  generateUUID,
-  type PayloadDataMap,
-} from "../index.js";
+  PACKET,
+  type Packet,
+  type PacketDefinition,
+  type PacketType,
+  readPacket,
+  writePacket,
+} from "@jungle/packet";
+import type { WebSocket, WebSocketServer } from "ws";
 
-export type Message<T extends EventTypeEnum> = {
+export type Message<T extends PacketType> = {
   header: {
     type: T;
-    localId: string;
-    id: string;
   };
-  data: PayloadDataMap[T];
+  data: PacketDefinition<T>;
 };
 
-type MessageHandler<T extends EventTypeEnum> = (
-  socket: WebSocket,
+type MessageHandler<T extends PacketType> = (
+  helpers: { socket: WebSocket; writePacket: typeof writePacket },
   msg: Message<T>,
 ) => void;
 
 type ServerHandlers = {
-  [K in EventTypeEnum]?: MessageHandler<K>;
+  [K in PacketType]?: MessageHandler<K>;
 };
 
 export function createWebSocketServerProtocol(
@@ -31,37 +29,29 @@ export function createWebSocketServerProtocol(
   handlers: ServerHandlers,
 ) {
   server.on("connection", (socket) => {
-    const clientLocalId = Math.random().toString(36).substring(2, 15);
-    let clientTransportId = decodeUUID(generateUUID());
-    let updatedTransportId = false;
+    let clientTransportId = "unknown";
 
     socket.on("message", (message) => {
       try {
-        const { header, data } = decodeMessage(message as ArrayBuffer);
-        const type = header.type as EventTypeEnum;
+        const { header, data } = readPacket(message as ArrayBuffer);
 
-        if (!updatedTransportId) {
-          clientTransportId = decodeUUID(header.id);
-          updatedTransportId = true;
-        } else {
-          if (clientTransportId !== decodeUUID(header.id)) {
-            console.warn(
-              "Client transport ID mismatch. Expected:",
-              clientTransportId,
-              "Received:",
-              decodeUUID(header.id),
-            );
-          }
+        const type = header.type;
+
+        if (header.type === PACKET.CONNECT) {
+          const connectData = data as PacketDefinition<Packet["CONNECT"]>;
+
+          clientTransportId = connectData.clientId;
         }
-
-        const payload = deserializePayload(header, data);
 
         const handler = handlers[type] as MessageHandler<typeof type>;
         if (handler) {
-          handler(socket, {
-            header: { id: clientTransportId, localId: clientLocalId, type },
-            data: payload,
-          });
+          handler(
+            { socket, writePacket },
+            {
+              header: { type },
+              data,
+            },
+          );
         } else {
           console.warn("No handler for server event type:", type);
         }
@@ -71,14 +61,15 @@ export function createWebSocketServerProtocol(
     });
 
     socket.on("close", () => {
-      handlers[Event.DISCONNECT]?.(socket, {
-        header: {
-          type: Event.DISCONNECT,
-          id: clientTransportId,
-          localId: clientLocalId,
+      handlers[PACKET.DISCONNECT]?.(
+        { socket, writePacket },
+        {
+          header: {
+            type: PACKET.DISCONNECT,
+          },
+          data: { clientId: clientTransportId },
         },
-        data: [],
-      });
+      );
     });
   });
 }

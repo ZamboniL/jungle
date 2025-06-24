@@ -1,15 +1,15 @@
 import { readUuid, writeUuid } from "./encode/uuid.js";
 
-type DisconnectPacket = {
+export type DisconnectPacket = {
   clientId: string; // 16B
 };
 
-export const readDisconnect = (buffer: ArrayBuffer): DisconnectPacket => {
-  if (buffer.byteLength !== 16) {
-    throw new Error(`Invalid connect packet length: ${buffer.byteLength}.`);
+export const readDisconnect = (data: DataView): DisconnectPacket => {
+  if (data.byteLength !== 16) {
+    throw new Error(`Invalid connect packet length: ${data.byteLength}.`);
   }
 
-  const clientId = readUuid(buffer);
+  const clientId = readUuid(data.buffer);
 
   return { clientId };
 };

@@ -5,7 +5,7 @@ type Player = {
   id: string; // 16B
 };
 
-type WelcomePacket = {
+export type WelcomePacket = {
   playerCount: number; // 1B
   currentPlayer: {
     roomId: number; // 1B

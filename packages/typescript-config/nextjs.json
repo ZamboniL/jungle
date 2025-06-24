@@ -4,6 +4,7 @@
   "compilerOptions": {
     "plugins": [{ "name": "next" }],
     "module": "preserve",
+    "moduleResolution": "bundler",
     "jsx": "preserve",
     "allowJs": false,
     "noEmit": true

@@ -2,14 +2,10 @@
   "name": "@jungle/communication",
   "version": "0.0.0",
   "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "type": "module",
   "exports": {
-    "./websocket": {
-      "import": "./src/websocket/index.ts",
-      "require": "./src/websocket/index.ts",
-      "default": "./src/websocket/index.ts",
-      "types": "./src/websocket/index.ts"
-    },
     "./websocket/client": {
       "import": "./src/websocket/protocol/client.ts",
       "require": "./src/websocket/protocol/client.ts",
@@ -23,11 +19,13 @@
       "types": "./src/websocket/protocol/server.ts"
     }
   },
-  "scripts": {},
+  "scripts": {
+    "build": "tsc"
+  },
   "dependencies": {
-    "typescript": "^5.8.3",
+    "typescript": "^5",
     "@jungle/typescript-config": "*",
-    "@jungle/shared-types": "*"
+    "@jungle/packet": "*"
   },
   "peerDependencies": {
     "ws": "^8.18.2"
